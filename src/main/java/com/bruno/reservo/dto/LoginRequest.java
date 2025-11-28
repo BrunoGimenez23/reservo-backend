@@ -1,0 +1,9 @@
+package com.bruno.reservo.dto;
+
+import lombok.*;
+
+@Data
+public class LoginRequest {
+    private String email;
+    private String password;
+}
