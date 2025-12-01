@@ -1,8 +1,14 @@
 package com.bruno.reservo.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Data
 public class ReservationResponseDTO {
     private Long id;

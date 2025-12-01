@@ -29,49 +29,40 @@ public class ReservationService {
     private final BusinessRepository businessRepo;
     private final BusinessScheduleRepository scheduleRepo;
 
-
     // ==================== CREAR RESERVA ====================
     public ReservationResponseDTO create(Long businessId, ReservationRequestDTO dto) {
 
-        Business business = businessRepo.findById(businessId)
-                .orElseThrow(() -> new RuntimeException("Business not found"));
-
         ServiceEntity service = serviceRepo.findById(dto.getServiceId())
-                .orElseThrow(() -> new RuntimeException("Service not found"));
+                .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
 
         LocalDateTime start = dto.getStartTime();
         LocalDateTime end = start.plusMinutes(service.getDurationMinutes());
 
-        // Ver si se solapa con otras reservas del negocio
-        var overlaps = reservationRepo.findByBusinessIdAndStartTimeBetween(
+        // Validación de superposición
+        List<Reservation> overlapping = reservationRepo.findOverlappingReservations(
                 businessId,
-                start.minusMinutes(service.getDurationMinutes()),
+                start,
                 end
         );
 
-        boolean conflict = overlaps.stream().anyMatch(r ->
-                r.getStartTime().isBefore(end) &&
-                        r.getEndTime().isAfter(start)
-        );
-
-        if (conflict) {
-            throw new RuntimeException("Horario ocupado");
+        if (!overlapping.isEmpty()) {
+            throw new IllegalStateException("Ese horario ya está ocupado");
         }
 
-        Reservation r = Reservation.builder()
+        Reservation reservation = Reservation.builder()
                 .clientName(dto.getClientName())
                 .clientEmail(dto.getClientEmail())
                 .startTime(start)
                 .endTime(end)
                 .service(service)
-                .business(business)
+                .business(service.getBusiness())
                 .status(ReservationStatus.PENDING)
                 .build();
 
-        reservationRepo.save(r);
-        return toDTO(r);
-    }
+        Reservation saved = reservationRepo.save(reservation);
 
+        return toDTO(saved);
+    }
 
     // ==================== OBTENER RESERVAS DEL NEGOCIO ====================
     public List<ReservationResponseDTO> getByBusinessId(Long businessId) {
@@ -80,7 +71,6 @@ public class ReservationService {
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }
-
 
     // ==================== CAMBIAR ESTADO ====================
     public void updateStatus(Long id, ReservationStatus newStatus) {
@@ -91,27 +81,24 @@ public class ReservationService {
         reservationRepo.save(res);
     }
 
-
     // ==================== ELIMINAR RESERVA ====================
     public void delete(Long id) {
         reservationRepo.deleteById(id);
     }
 
-
     // ==================== DTO MAPPER ====================
     private ReservationResponseDTO toDTO(Reservation r) {
-        ReservationResponseDTO dto = new ReservationResponseDTO();
-        dto.setId(r.getId());
-        dto.setClientName(r.getClientName());
-        dto.setClientEmail(r.getClientEmail());
-        dto.setStartTime(r.getStartTime());
-        dto.setEndTime(r.getEndTime());
-        dto.setServiceName(r.getService().getName());
-        dto.setBusinessName(r.getBusiness().getName());
-        dto.setStatus(r.getStatus().name());
-        return dto;
+        return ReservationResponseDTO.builder()
+                .id(r.getId())
+                .clientName(r.getClientName())
+                .clientEmail(r.getClientEmail())
+                .startTime(r.getStartTime())
+                .endTime(r.getEndTime())
+                .serviceName(r.getService().getName())
+                .businessName(r.getBusiness().getName())
+                .status(r.getStatus().name())
+                .build();
     }
-
 
     // ==================== DISPONIBILIDAD ====================
     public List<String> getAvailableSlots(Long businessId, Long serviceId, LocalDate date) {
@@ -125,30 +112,31 @@ public class ReservationService {
         if (!schedule.isActive()) return List.of(); // Día cerrado
 
         var service = serviceRepo.findById(serviceId)
-                .orElseThrow(() -> new RuntimeException("Service not found"));
+                .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
 
         int duration = service.getDurationMinutes();
 
-        LocalTime start = LocalTime.parse(schedule.getStartTime());
-        LocalTime end = LocalTime.parse(schedule.getEndTime());
+        LocalTime startTime = LocalTime.parse(schedule.getStartTime());
+        LocalTime endTime = LocalTime.parse(schedule.getEndTime());
 
-        if (start.equals(end)) return List.of(); // Horario inválido
+        if (startTime.equals(endTime)) return List.of(); // Horario inválido
 
         List<String> available = new ArrayList<>();
-
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime current = date.atTime(start);
-        LocalDateTime limit = date.atTime(end);
+        LocalDateTime current = date.atTime(startTime);
+        LocalDateTime limit = date.atTime(endTime);
 
+        // Cargar reservas del día
         List<Reservation> busy = reservationRepo
-                .findByBusinessIdAndServiceIdAndStartTimeBetween(
+                .findByBusinessIdAndStartTimeBetween(
                         businessId,
-                        serviceId,
                         date.atStartOfDay(),
                         date.atTime(23, 59)
-                );
+                ).stream()
+                .filter(r -> r.getStatus() != ReservationStatus.CANCELED)
+                .collect(Collectors.toList());
 
-        while (current.plusMinutes(duration).compareTo(limit) <= 0) {
+        while (current.plusMinutes(duration).isBefore(limit) || current.plusMinutes(duration).equals(limit)) {
 
             LocalDateTime slotStart = current;
             LocalDateTime slotEnd = current.plusMinutes(duration);

@@ -2,6 +2,7 @@ package com.bruno.reservo.repositories;
 
 import com.bruno.reservo.entities.Reservation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +23,22 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     );
 
     List<Reservation> findByBusinessIdOrderByStartTimeAsc(Long businessId);
+
+
+    @Query("""
+    SELECT r FROM Reservation r
+    WHERE r.business.id = :businessId
+    AND r.status <> 'CANCELLED'
+    AND (
+        (r.startTime < :newEndTime)
+        AND (r.endTime > :newStartTime)
+    )
+""")
+    List<Reservation> findOverlappingReservations(
+            Long businessId,
+            LocalDateTime newStartTime,
+            LocalDateTime newEndTime
+    );
 
 
 }
