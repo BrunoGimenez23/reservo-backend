@@ -17,7 +17,7 @@ public class Reservation {
     private Long id;
 
     private String clientName;       // Nombre del cliente que reserva
-    private String clientEmail;      // Email del cliente (para enviar recordatorios)
+    private String clientPhone;
 
     private LocalDateTime startTime; // Fecha y hora de inicio
     private LocalDateTime endTime;   // Se calcula automáticamente

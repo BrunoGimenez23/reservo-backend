@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 @Data
 public class ReservationRequestDTO {
     private String clientName;
-    private String clientEmail;
+    private String clientPhone;
     private LocalDateTime startTime;
     private Long serviceId;
 }

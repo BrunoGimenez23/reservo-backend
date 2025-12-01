@@ -51,7 +51,7 @@ public class ReservationService {
 
         Reservation reservation = Reservation.builder()
                 .clientName(dto.getClientName())
-                .clientEmail(dto.getClientEmail())
+                .clientPhone(dto.getClientPhone())
                 .startTime(start)
                 .endTime(end)
                 .service(service)
@@ -91,7 +91,7 @@ public class ReservationService {
         return ReservationResponseDTO.builder()
                 .id(r.getId())
                 .clientName(r.getClientName())
-                .clientEmail(r.getClientEmail())
+                .clientPhone(r.getClientPhone())
                 .startTime(r.getStartTime())
                 .endTime(r.getEndTime())
                 .serviceName(r.getService().getName())

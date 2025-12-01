@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class ReservationResponseDTO {
     private Long id;
     private String clientName;
-    private String clientEmail;
+    private String clientPhone;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String serviceName;
